@@ -10,7 +10,7 @@ void *producer (void *id);
 void *consumer (void *id);
 
 struct job {
-	int job_id; // needed??
+	int jobs;
 	int* producer_id; // for producer and consumer
 	int* consumer_id;
 	int duration;
@@ -34,8 +34,8 @@ int main (int argc, char **argv) {
 		* number of producers
 		* number of consumers
 	*/	
-	int queue_size = 5;
-	int jobs = 20;
+	int queue_size = 1;
+	int jobs = 5;
 	int producers = 10;
 	int consumers = 10;
 
@@ -64,6 +64,7 @@ int main (int argc, char **argv) {
 
 	job next_job;
 
+	next_job.jobs = jobs;
 	next_job.queue = new int[queue_size];
 	next_job.tail = new int(0);
 	next_job.head = new int(0);
@@ -129,28 +130,36 @@ void *producer (void *next_job) {
 	// produce duration and ID of the job before we put it into the queue we
 	// sleep.
 
-	int duration, job, id;
-	duration = 2; // random function.
+	int duration, job, id, jobs;
 	
+	jobs = current_job->jobs;
 	sem_wait(sem, 4);
 	id = *(current_job->producer_id);
 	*(current_job->producer_id) = *(current_job->producer_id) + 1;
 	sem_signal(sem, 4);
 	
-	sem_wait(sem, 1); // down on space
-	sem_wait(sem, 0);
-	
-	current_job->queue[*head] = duration;
-	job = *head; // maybe change to plus one 
-	*(current_job->head) = (*head + 1) % (current_job->queue_size);
-	sem_signal(sem, 0);
-	// we put the mutex(0) up, then we increase the item (2)
-	sem_signal(sem, 2);
+	while (jobs) {
+		jobs--;
+		sleep(rand() % 5 + 1);
+		duration = rand() % 10 + 1; 
+		
 
-	sem_wait(sem, 3);
-	cout << "Producer(" << id << "): Job id " << job << " duration " << duration << endl;
-	sem_signal(sem, 3);
+		
+		sem_wait(sem, 1); // end this wait if wait for 20s and quit producer
+		sem_wait(sem, 0);
+		
+		current_job->queue[*head] = duration;
+		job = *head; // maybe change to plus one 
+		*(current_job->head) = (*head + 1) % (current_job->queue_size);
+		sem_signal(sem, 0);
+		// we put the mutex(0) up, then we increase the item (2)
+		sem_signal(sem, 2);
 
+		sem_wait(sem, 3);
+		cout << "Producer(" << id << "): Job id " << job << " duration " << duration << endl;
+		sem_signal(sem, 3);
+
+	}
 	pthread_exit(0);
 }
 
@@ -169,32 +178,34 @@ void *consumer (void *next_job) {
 	job *current_job = (job *) next_job;
 	int *tail = current_job->tail;
 	int duration, job, id;
-
 	sem_wait(sem, 5);
 	id = *(current_job->consumer_id);
 	*(current_job->consumer_id) = *(current_job->consumer_id) + 1;
 	sem_signal(sem, 5);
 
-	sem_wait(sem, 2);
-	sem_wait(sem, 0);
-	duration = current_job->queue[*tail];
-	job = *tail;
-	*(current_job->tail) = (*tail + 1) % (current_job->queue_size); 
-	sem_signal(sem, 0);
-	sem_signal(sem, 1);
+	while (1) {
 
-	sem_wait(sem, 3);
-	cout << "Consumer(" << id << "): Job id " << job << " executing sleep"
-		<< " duration " << duration << endl;
-	sem_signal(sem, 3);
 
-	sleep(duration);
-	
-	sem_wait(sem, 3);
-	cout << "Consumer(" << id << "): Job id " << job << " completed" << endl;
-	sem_signal(sem, 3);
-	
+		sem_wait(sem, 2); // end this wait if wait for 20s and quit consumer
+		sem_wait(sem, 0);
+		duration = current_job->queue[*tail];
+		job = *tail;
+		*(current_job->tail) = (*tail + 1) % (current_job->queue_size); 
+		sem_signal(sem, 0);
+		sem_signal(sem, 1);
 
+		sem_wait(sem, 3);
+		cout << "Consumer(" << id << "): Job id " << job << " executing sleep"
+			<< " duration " << duration << endl;
+		sem_signal(sem, 3);
+
+		sleep(duration);
+		
+		sem_wait(sem, 3);
+		cout << "Consumer(" << id << "): Job id " << job << " completed" << endl;
+		sem_signal(sem, 3);
+		
+	}
 	pthread_exit (0);
 
 }
