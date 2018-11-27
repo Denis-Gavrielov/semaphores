@@ -34,10 +34,10 @@ int main (int argc, char **argv) {
 		* number of producers
 		* number of consumers
 	*/	
-	int queue_size = 1;
+	int queue_size = 3;
 	int jobs = 5;
-	int producers = 10;
-	int consumers = 10;
+	int producers = 3;
+	int consumers = 3;
 
 	// check if init worked
 	int returns = sem_init(sem, 0, 1); // mutex
