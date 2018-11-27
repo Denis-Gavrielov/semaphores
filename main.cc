@@ -10,8 +10,9 @@ void *producer (void *id);
 void *consumer (void *id);
 
 struct job {
-	int job_id;
-	int id; // for producer and consumer
+	int job_id; // needed??
+	int* producer_id; // for producer and consumer
+	int* consumer_id;
 	int duration;
 	int* queue;
 	int* tail;
@@ -20,7 +21,7 @@ struct job {
 };
 
 // need 3 semaphores
-int sem = sem_create(SEM_KEY, 3); 
+int sem = sem_create(SEM_KEY, 4); 
 /* note: could also be put into main and have pointer pointing 
 to the sem (?)*/
 
@@ -48,22 +49,21 @@ int main (int argc, char **argv) {
 	returns = sem_init(sem, 2, 0); // queue not empty
 	if (returns)
 		cout << "SEMAPHORE NOT CREATED" << endl;
-
-	// queue
-	int* queue = new int[queue_size];
-	int* tail = new int(0); // points to where consumer takes out
-	int* head = new int(0); // pointer to where producer pushes in
-
+	returns = sem_init(sem, 3, 1); // printing
+	if (returns)
+		cout << "SEMAPHORE NOT CREATED" << endl;
 
 	pthread_t producerid[producers];
 	pthread_t consumerid[consumers];
 
 	job next_job;
 
-	next_job.queue = queue;
-	next_job.tail = tail;
-	next_job.head = head;
+	next_job.queue = new int[queue_size];
+	next_job.tail = new int(0);
+	next_job.head = new int(0);
 	next_job.queue_size = queue_size;
+	next_job.producer_id = new int(0);
+	next_job.producer_id = new int(0);
 
 	/* NOTE: potential issue: we will always pass the same struct, so whatever
 	 * change we make to the struct will be global for all the other structs.
@@ -116,23 +116,24 @@ void *producer (void *next_job) {
 	// produce duration and ID of the job before we put it into the queue we
 	// sleep.
 
-	int duration = 9; // random function. 
-	
+	int duration, job;
+	duration = 2; // random function. 
 	sem_wait(sem, 1); // down on space
 	
 	// We check if there is reduce the space first(1), then only we would
 	// activate the mutex(0)
 	sem_wait(sem, 0);
-	cout << "mutex down completed" << endl;
 	
-	current_job->job_id = *head; // maybe change to plus one 
+	job = *head; // maybe change to plus one 
 	current_job->queue[*head] = duration;
-	*(current_job->head) = (*head + 1) % (current_job->queue_size) - 1;
-	
+	*(current_job->head) = (*head + 1) % (current_job->queue_size) - 1;	
 	sem_signal(sem, 0);
-	cout << "mutex up completed" << endl;
 	// we put the mutex(0) up, then we increase the item (2)
 	sem_signal(sem, 2);
+
+	sem_wait(sem, 3);
+	cout << "Producer(id): Job id " << job << " duration " << duration << endl;
+	sem_signal(sem, 3);
 
 	pthread_exit(0);
 }
@@ -150,8 +151,26 @@ void *consumer (void *next_job) {
 	*/
 
 	job *current_job = (job *) next_job;
-	
+	int *tail = current_job->tail;
+	int duration, job;
 
+	sem_wait(sem, 2);
+	sem_wait(sem, 0);
+	duration = current_job->queue[*tail];
+	job = *tail;
+	sem_signal(sem, 0);
+	sem_signal(sem, 1);
+
+	sem_wait(sem, 3);
+	cout << "consumer start sleep of " << duration << " with job " << job << endl;
+	sem_signal(sem, 3);
+
+	sleep(duration);
+	
+	sem_wait(sem, 3);
+	cout << "consumer job " << job << " completed." << endl;
+	sem_signal(sem, 3);
+	
 
 	pthread_exit (0);
 
