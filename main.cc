@@ -86,13 +86,20 @@ int main (int argc, char **argv) {
 	 * then increment by one (could use semaphore to block) and then every
 	 * producer have their own id. 
 	*/
-	pthread_create (&producerid[0], NULL, producer, (void *) &next_job);
 
+	for (int i = 0; i < producers; i++) {
+		pthread_create (&producerid[i], NULL, producer, (void *) &next_job);
+	}
 	// 0 will be i in the for loop
-	pthread_create (&consumerid[0], NULL, consumer, (void *) &next_job);
+	for (int i = 0; i < consumers; i++) {
+		pthread_create (&consumerid[i], NULL, consumer, (void *) &next_job);
+	}
 
-  	pthread_join (producerid[0], NULL);
-	pthread_join (consumerid[0], NULL);
+	for (int i = 0; i < producers; i++) {
+  		pthread_join (producerid[i], NULL);
+	}
+	for (int i = 0; i < consumers; i++) 
+		pthread_join (consumerid[i], NULL);
 
 	sem_close(sem); // alternatively/manually ipcrm -s [number from ipcs]
 
@@ -133,9 +140,9 @@ void *producer (void *next_job) {
 	sem_wait(sem, 1); // down on space
 	sem_wait(sem, 0);
 	
-	job = *head; // maybe change to plus one 
 	current_job->queue[*head] = duration;
-	*(current_job->head) = (*head + 1) % (current_job->queue_size) - 1;	
+	job = *head; // maybe change to plus one 
+	*(current_job->head) = (*head + 1) % (current_job->queue_size);
 	sem_signal(sem, 0);
 	// we put the mutex(0) up, then we increase the item (2)
 	sem_signal(sem, 2);
@@ -172,6 +179,7 @@ void *consumer (void *next_job) {
 	sem_wait(sem, 0);
 	duration = current_job->queue[*tail];
 	job = *tail;
+	*(current_job->tail) = (*tail + 1) % (current_job->queue_size); 
 	sem_signal(sem, 0);
 	sem_signal(sem, 1);
 
