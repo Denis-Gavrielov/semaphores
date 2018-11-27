@@ -21,7 +21,7 @@ struct job {
 };
 
 // need 3 semaphores
-int sem = sem_create(SEM_KEY, 4); 
+int sem = sem_create(SEM_KEY, 6); 
 /* note: could also be put into main and have pointer pointing 
 to the sem (?)*/
 
@@ -52,6 +52,12 @@ int main (int argc, char **argv) {
 	returns = sem_init(sem, 3, 1); // printing
 	if (returns)
 		cout << "SEMAPHORE NOT CREATED" << endl;
+	returns = sem_init(sem, 4, 1); // producer_id allocation
+	if (returns)
+		cout << "SEMAPHORE NOT CREATED" << endl;
+	returns = sem_init(sem, 5, 1); // consumer_id allocation
+	if (returns)
+		cout << "SEMAPHORE NOT CREATED" << endl;
 
 	pthread_t producerid[producers];
 	pthread_t consumerid[consumers];
@@ -62,8 +68,8 @@ int main (int argc, char **argv) {
 	next_job.tail = new int(0);
 	next_job.head = new int(0);
 	next_job.queue_size = queue_size;
-	next_job.producer_id = new int(0);
-	next_job.producer_id = new int(0);
+	next_job.producer_id = new int(1);
+	next_job.consumer_id = new int(1);
 
 	/* NOTE: potential issue: we will always pass the same struct, so whatever
 	 * change we make to the struct will be global for all the other structs.
@@ -116,12 +122,15 @@ void *producer (void *next_job) {
 	// produce duration and ID of the job before we put it into the queue we
 	// sleep.
 
-	int duration, job;
-	duration = 2; // random function. 
-	sem_wait(sem, 1); // down on space
+	int duration, job, id;
+	duration = 2; // random function.
 	
-	// We check if there is reduce the space first(1), then only we would
-	// activate the mutex(0)
+	sem_wait(sem, 4);
+	id = *(current_job->producer_id);
+	*(current_job->producer_id) = *(current_job->producer_id) + 1;
+	sem_signal(sem, 4);
+	
+	sem_wait(sem, 1); // down on space
 	sem_wait(sem, 0);
 	
 	job = *head; // maybe change to plus one 
@@ -132,7 +141,7 @@ void *producer (void *next_job) {
 	sem_signal(sem, 2);
 
 	sem_wait(sem, 3);
-	cout << "Producer(id): Job id " << job << " duration " << duration << endl;
+	cout << "Producer(" << id << "): Job id " << job << " duration " << duration << endl;
 	sem_signal(sem, 3);
 
 	pthread_exit(0);
@@ -152,7 +161,12 @@ void *consumer (void *next_job) {
 
 	job *current_job = (job *) next_job;
 	int *tail = current_job->tail;
-	int duration, job;
+	int duration, job, id;
+
+	sem_wait(sem, 5);
+	id = *(current_job->consumer_id);
+	*(current_job->consumer_id) = *(current_job->consumer_id) + 1;
+	sem_signal(sem, 5);
 
 	sem_wait(sem, 2);
 	sem_wait(sem, 0);
@@ -162,13 +176,14 @@ void *consumer (void *next_job) {
 	sem_signal(sem, 1);
 
 	sem_wait(sem, 3);
-	cout << "consumer start sleep of " << duration << " with job " << job << endl;
+	cout << "Consumer(" << id << "): Job id " << job << " executing sleep"
+		<< " duration " << duration << endl;
 	sem_signal(sem, 3);
 
 	sleep(duration);
 	
 	sem_wait(sem, 3);
-	cout << "consumer job " << job << " completed." << endl;
+	cout << "Consumer(" << id << "): Job id " << job << " completed" << endl;
 	sem_signal(sem, 3);
 	
 
