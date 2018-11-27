@@ -104,6 +104,7 @@ int main (int argc, char **argv) {
 
 	sem_close(sem); // alternatively/manually ipcrm -s [number from ipcs]
 
+	// don't forget to clear the memory from heap;
   	return 0; 
 }
 
@@ -152,7 +153,6 @@ void *producer (void *next_job) {
 		job = *head; // maybe change to plus one 
 		*(current_job->head) = (*head + 1) % (current_job->queue_size);
 		sem_signal(sem, 0);
-		// we put the mutex(0) up, then we increase the item (2)
 		sem_signal(sem, 2);
 
 		sem_wait(sem, 3);
@@ -185,8 +185,11 @@ void *consumer (void *next_job) {
 
 	while (1) {
 
-
+		
+//		20seccheck(); 
 		sem_wait(sem, 2); // end this wait if wait for 20s and quit consumer
+		// if (time is up) pthread_exit (0); 
+	
 		sem_wait(sem, 0);
 		duration = current_job->queue[*tail];
 		job = *tail;
@@ -209,3 +212,11 @@ void *consumer (void *next_job) {
 	pthread_exit (0);
 
 }
+
+//20seccheck() {
+	// keeps on checking the queue
+	// has timers
+	// if queue not updated within 20s
+	// then global variable => time is up = true
+	// sem_signal(sem, 2); 
+//}
