@@ -47,9 +47,9 @@ int main (int argc, char **argv) {
 		* number of consumers
 	*/	
 	int queue_size = 3;
-	int jobs = 2;
-	int producers = 3;
-	int consumers = 3;
+	int jobs = 3;
+	int producers = 10;
+	int consumers = 1;
 
 	// check if init worked
 	int returns = sem_init(sem, 0, 1); // mutex
@@ -147,6 +147,7 @@ void *producer (void *next_job) {
 	// sleep.
 
 	int duration, job, id, jobs;
+	clock_t time_stamp;
 	
 	jobs = current_job->jobs;
 	sem_wait(sem, 4);
@@ -159,9 +160,26 @@ void *producer (void *next_job) {
 		sleep(rand() % 5 + 1);
 		duration = rand() % 10 + 1; 
 		
-
+		while (1) {
+			time_stamp = *(current_job->time_last_consumed); // timestamp 
+			steady_clock::time_point clock_begin = steady_clock::now();
+			
+			sem_wait(sem, 1, 20); // end this wait if wait for 20s and quit consumer
+			
+			steady_clock::time_point clock_end = steady_clock::now();
+			steady_clock::duration time_span = clock_end - clock_begin;
+			double nseconds = double(time_span.count()) * steady_clock::period::num / steady_clock::period::den;
+//			cout << (int) *(current_job->time_last_produced) << " timestamp clock_t " << endl;
+			if (time_stamp == *(current_job->time_last_consumed) && nseconds >=20 ) {
+				cout << "Consumer(" << id << "): No more jobs left" << endl;
+				pthread_exit (0); 
+			} else if (time_stamp != *(current_job->time_last_consumed) && nseconds >= 20) 
+				continue;
+			else 
+				break;
+		}
 		
-		sem_wait(sem, 1); // end this wait if wait for 20s and quit producer
+		
 		sem_wait(sem, 0);
 			
 		current_job->queue[*head] = duration;
@@ -174,7 +192,7 @@ void *producer (void *next_job) {
 		sem_wait(sem, 3);
 		cout << "Producer(" << id << "): Job id " << job << " duration " << duration << endl;
 		sem_signal(sem, 3);
-
+// add cout No more jobs to generate. 
 	}
 	pthread_exit(0);
 }
@@ -195,14 +213,7 @@ void *consumer (void *next_job) {
 	int *tail = current_job->tail;
 	int duration, job, id;
 	bool* expired = new bool(0);
-	clock_t time, now;
-	
-//	pthread_t timer;
-//	TimeOut time_out = {current_job->time_last_consumed, expired};
-
-	
-
-
+	clock_t time_stamp;
 	
 	sem_wait(sem, 5);
 	id = *(current_job->consumer_id);
@@ -210,46 +221,27 @@ void *consumer (void *next_job) {
 	sem_signal(sem, 5);
 
 	while (1) {
-
-		/* put a while loop around here -> if the 20s have passed and timestamp
-		 * was not updated -> pthread_exit. if timestamp was updated -> start
-		 * timer again with the below formula.
-		*/
-		time = *(current_job->time_last_produced);
-	//	now = clock();
-	//	pthread_create (&timer, NULL, consumerTimeOut, (void *) &time_out);
 	
-	
-		steady_clock::time_point clock_begin = steady_clock::now();
-		
-		sem_wait(sem, 2, 1); // end this wait if wait for 20s and quit consumer
-		
-		steady_clock::time_point clock_end = steady_clock::now();
-		steady_clock::duration time_span = clock_end - clock_begin;
-		double nseconds = double(time_span.count()) * steady_clock::period::num / steady_clock::period::den;
-		
-		if (time == *(current_job->time_last_produced) && nseconds >=20 ) {
-			cout << "Consumer(" << id << "): No more jobs left" << endl;
-			pthread_exit (0); 
-
+		while (1) {	
+			time_stamp = *(current_job->time_last_produced); // timestamp 
+			steady_clock::time_point clock_begin = steady_clock::now();
+			
+			sem_wait(sem, 2, 20); // end this wait if wait for 20s and quit consumer
+			
+			steady_clock::time_point clock_end = steady_clock::now();
+			steady_clock::duration time_span = clock_end - clock_begin;
+			double nseconds = double(time_span.count()) * steady_clock::period::num / steady_clock::period::den;
+//			cout << (int) *(current_job->time_last_produced) << " timestamp clock_t " << endl;
+			if (time_stamp == *(current_job->time_last_produced) && nseconds >=20 ) {
+				cout << "Consumer(" << id << "): No more jobs left" << endl;
+				pthread_exit (0); 
+			} else if (time_stamp != *(current_job->time_last_produced) && nseconds >= 20) 
+				continue;
+			else 
+				break;
 		}
-//		cout << (time == *(current_job->time_last_produced)) << " ... time .."
-//		<< " 20 seconds passed: " << (nseconds) << endl;
-//		cout << "----------waiting completed ------ " << endl;	
-
-		// could check the timer exit code instead
-//		if (*expired) {
-//			sem_wait(sem, 3);
-//			sem_signal(sem, 3);
-//			pthread_exit (0);
-//		} else {
-//			// NOTE: should be a critical zone to kill the thread?!
-//			// what if it gets stuck in a sem wait of 3?
-//			pthread_kill (timer, 0);
-//		}
 
 		sem_wait(sem, 0);
-	//	cout << "---- should be blocked here ---" << endl;
 		duration = current_job->queue[*tail];
 		*(current_job->time_last_consumed) = clock(); // timestamp
 		job = *tail;
@@ -268,52 +260,8 @@ void *consumer (void *next_job) {
 		cout << "Consumer(" << id << "): Job id " << job << " completed" << endl;
 		sem_signal(sem, 3);
 		
-		cout << " --- CONTINUE ITERATION --- " << endl;
 	}
 	pthread_exit (0);
 
 }
 
-void *consumerTimeOut (void *time_out) {
-
-	TimeOut *data = (TimeOut *) time_out;
-	clock_t start = *(data->time_stamp);
-
-//	sem_wait(sem, 3);
-	cout << "start sleep for 10 seconds" << endl;
-//	sem_signal(sem, 3);
-
-	// create a while around here sleeping for the formula below
-	sleep(10);
-
-	if (start != *(data->time_stamp)) {
-//		sem_wait(sem, 3);
-		cout << "time is different" << endl;
-//		sem_signal(sem, 3);
-	} else {
-		*(data->expired) = true;
-		sem_signal(sem, 2);
-		pthread_exit (0);
-	}
-	
-
-//	sem_wait(sem,  3);
-	cout << "end sleep" << endl;
-//	sem_signal(sem, 3);
-
-	pthread_exit (0);
-
-}
-
-//20seccheck() {
-	// keeps on checking the queue
-	// has timers
-	// if queue not updated within 20s
-	// then global variable => time is up = true
-	// sem_signal(sem, 2); 
-//}
-
-// update time stamp every time we add to queue
-// or we take from queue -> when we are done waiting for 20s and we did not
-// finish the wait naturally (taken away) then we check the time stamp and wait
-// for another X seconds where X = 20s - (time now - timestamp)
