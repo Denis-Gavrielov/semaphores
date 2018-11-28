@@ -19,6 +19,8 @@
 # include <pthread.h>
 # include <ctype.h>
 # include <iostream>
+# include <time.h> // my includes
+# include <signal.h>
 using namespace std;
 
 # define SEM_KEY 0x3718 // Change this number as needed
