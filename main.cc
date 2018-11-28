@@ -133,9 +133,17 @@ void *producer (void *my_job) {
 		sem_signal(sem, 3);
 	
 	}
-	sem_wait(sem, 3);
-	cout << "Producer(" << id << "): No more jobs to generate." << endl;
-	sem_signal(sem, 3);
+	if (jobs) {
+		sem_wait(sem, 3);
+		cout << "Producer(" << id << "): Quitting, because no space to add jobs."
+		<< endl;
+		sem_signal(sem, 3);
+	} else {
+		sem_wait(sem, 3);
+		cout << "Producer(" << id << "): No more jobs to generate." << endl;
+		sem_signal(sem, 3);
+	}
+
 	pthread_exit(0);
 }
 
@@ -153,8 +161,9 @@ void *consumer (void *my_job) {
 
 	while (1) {
 	
-		if (sem_wait(sem, 2, MAX_WAIT))
+		if (sem_wait(sem, 2, MAX_WAIT)) 
 			break;
+		
 
 		sem_wait(sem, 0);
 		duration = job_p->queue[*tail];
@@ -175,11 +184,10 @@ void *consumer (void *my_job) {
 		sem_signal(sem, 3);
 		
 	}
-	
 	sem_wait(sem, 3);
 	cout << "Consumer(" << id << "): No more jobs left." << endl;
 	sem_signal(sem, 3);
-
+	
 	pthread_exit (0);
 }
 
