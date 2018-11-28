@@ -50,12 +50,12 @@ void sem_wait (int id, short unsigned int num)
   semop (id, op, 1);
 }
 
-void sem_wait (int id, short unsigned int num, int i)
+void sem_wait (int id, short unsigned int num, int seconds)
 {
   struct sembuf op[] = {
     {num, -1, SEM_UNDO}
   };
-  const timespec time_struct = {i};
+  const timespec time_struct = {seconds};
   semtimedop (id, op, 1, &time_struct);
 }
 

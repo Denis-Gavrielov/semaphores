@@ -36,23 +36,17 @@ int main (int argc, char **argv) {
 	int sem = sem_create(SEM_KEY, 6); 
 
 	// check if init worked
-	int returns = sem_init(sem, 0, 1); // mutex
-	if (returns)
+	if (sem_init(sem, 0, 1)) // mutex
 		cout << "SEMAPHORE NOT CREATED" << endl;
-	returns = sem_init(sem, 1, queue_size); // queue not full
-	if (returns)
+	if (sem_init(sem, 1, queue_size)) // queue not full
 		cout << "SEMAPHORE NOT CREATED" << endl;
-	returns = sem_init(sem, 2, 0); // queue not empty
-	if (returns)
+	if (sem_init(sem, 2, 0)) // queue not empty
 		cout << "SEMAPHORE NOT CREATED" << endl;
-	returns = sem_init(sem, 3, 1); // printing
-	if (returns)
+	if (sem_init(sem, 3, 1)) // printing
 		cout << "SEMAPHORE NOT CREATED" << endl;
-	returns = sem_init(sem, 4, 1); // producer_id allocation
-	if (returns)
+	if (sem_init(sem, 4, 1)) // producer_id allocation
 		cout << "SEMAPHORE NOT CREATED" << endl;
-	returns = sem_init(sem, 5, 1); // consumer_id allocation
-	if (returns)
+	if (sem_init(sem, 5, 1)) // consumer_id allocation
 		cout << "SEMAPHORE NOT CREATED" << endl;
 
 	pthread_t producerid[producers];
@@ -118,10 +112,9 @@ void *producer (void *next_job) {
 		
 		while (1) {
 			time_stamp = *(current_job->time_last_consumed); // timestamp 
-			steady_clock::time_point clock_begin = steady_clock::now();
 			
-		//	int flag = sem_wait(sem, 1, 20); // end this wait if wait for 20s and quit consumer
-		//	cout << "producer flag is: " << flag << endl;
+			steady_clock::time_point clock_begin = steady_clock::now();
+		
 			sem_wait(sem, 1, 20);
 
 			steady_clock::time_point clock_end = steady_clock::now();
@@ -179,11 +172,7 @@ void *consumer (void *next_job) {
 			time_stamp = *(current_job->time_last_produced); 
 			steady_clock::time_point clock_begin = steady_clock::now();
 			
-			//int flag = sem_wait(sem, 2, 20);
-			//cout << "consumer flag is: " << flag << endl;
 			sem_wait(sem, 2, 20);
-			// change time stamp to difference between last timestamp and now (?)
-			
 			
 			steady_clock::time_point clock_end = steady_clock::now();
 			steady_clock::duration time_span = clock_end - clock_begin;
