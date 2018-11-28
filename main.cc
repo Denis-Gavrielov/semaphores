@@ -255,6 +255,7 @@ void *consumerTimeOut (void *time_out) {
 	cout << "start sleep for 10 seconds" << endl;
 //	sem_signal(sem, 3);
 
+	// create a while around here sleeping for the formula below
 	sleep(10);
 
 	if (start != *(data->time_stamp)) {
