@@ -29,6 +29,7 @@ struct TimeOut {
 	bool* expired;
 };
 
+using namespace std::chrono;
 // need 3 semaphores
 int sem = sem_create(SEM_KEY, 6); 
 /* note: could also be put into main and have pointer pointing 
@@ -95,6 +96,12 @@ int main (int argc, char **argv) {
 	 * producer have their own id. 
 	*/
 
+//	cout << "trying clock stuff" << endl;
+
+//	cout << "It took " << nseconds << " seconds. " << endl;
+
+//	cout << " end trying clock stuff ---------------" << endl;
+
 	for (int i = 0; i < producers; i++) {
 		pthread_create (&producerid[i], NULL, producer, (void *) &next_job);
 	}
@@ -110,7 +117,6 @@ int main (int argc, char **argv) {
 		pthread_join (consumerid[i], NULL);
 		cout << " CONSUMER " << i << " JOINED " << endl;
 	}
-	
 	sem_close(sem); // alternatively/manually ipcrm -s [number from ipcs]
 
 	// don't forget to clear the memory from heap;
@@ -189,9 +195,13 @@ void *consumer (void *next_job) {
 	int *tail = current_job->tail;
 	int duration, job, id;
 	bool* expired = new bool(0);
+	clock_t time, now;
 	
-	pthread_t timer;
-	TimeOut time_out = {current_job->time_last_consumed, expired};
+//	pthread_t timer;
+//	TimeOut time_out = {current_job->time_last_consumed, expired};
+
+	
+
 
 	
 	sem_wait(sem, 5);
@@ -205,23 +215,41 @@ void *consumer (void *next_job) {
 		 * was not updated -> pthread_exit. if timestamp was updated -> start
 		 * timer again with the below formula.
 		*/
+		time = *(current_job->time_last_produced);
+	//	now = clock();
+	//	pthread_create (&timer, NULL, consumerTimeOut, (void *) &time_out);
+	
+	
+		steady_clock::time_point clock_begin = steady_clock::now();
 		
-		pthread_create (&timer, NULL, consumerTimeOut, (void *) &time_out);
-
-		sem_wait(sem, 2); // end this wait if wait for 20s and quit consumer
-		// could check the timer exit code instead
-		if (*expired) {
-			sem_wait(sem, 3);
+		sem_wait(sem, 2, 1); // end this wait if wait for 20s and quit consumer
+		
+		steady_clock::time_point clock_end = steady_clock::now();
+		steady_clock::duration time_span = clock_end - clock_begin;
+		double nseconds = double(time_span.count()) * steady_clock::period::num / steady_clock::period::den;
+		
+		if (time == *(current_job->time_last_produced) && nseconds >=20 ) {
 			cout << "Consumer(" << id << "): No more jobs left" << endl;
-			sem_signal(sem, 3);
-			pthread_exit (0);
-		} else {
-			// NOTE: should be a critical zone to kill the thread?!
-			// what if it gets stuck in a sem wait of 3?
-			pthread_kill (timer, 0);
+			pthread_exit (0); 
+
 		}
+//		cout << (time == *(current_job->time_last_produced)) << " ... time .."
+//		<< " 20 seconds passed: " << (nseconds) << endl;
+//		cout << "----------waiting completed ------ " << endl;	
+
+		// could check the timer exit code instead
+//		if (*expired) {
+//			sem_wait(sem, 3);
+//			sem_signal(sem, 3);
+//			pthread_exit (0);
+//		} else {
+//			// NOTE: should be a critical zone to kill the thread?!
+//			// what if it gets stuck in a sem wait of 3?
+//			pthread_kill (timer, 0);
+//		}
 
 		sem_wait(sem, 0);
+	//	cout << "---- should be blocked here ---" << endl;
 		duration = current_job->queue[*tail];
 		*(current_job->time_last_consumed) = clock(); // timestamp
 		job = *tail;
