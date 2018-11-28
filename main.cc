@@ -18,21 +18,20 @@ struct job { // initialise values here?
 	int* producer_id = new int(1);
 	int* consumer_id = new int(1);
 	int duration;
-	int* queue = new int[queue_size];
+	int* queue;
 	int* tail = new int(0);
 	int* head = new int(0);
-	int queue_size;
-	clock_t* time_last_produced = new clock_t;
-	clock_t* time_last_consumed = new clock_t;
+	int queue_size; // needed?
 };
 
+const int MAX_SLEEP = 20;
 
 int main (int argc, char **argv) {
 
-	int queue_size = *argv[1] - '0';
-	int jobs = *argv[2] - '0';
-	int producers = *argv[3] - '0';
-	int consumers = *argv[4] - '0';
+	int queue_size = check_arg(argv[1]);
+	int jobs = check_arg(argv[2]);
+	int producers = check_arg(argv[3]);
+	int consumers = check_arg(argv[4]);
 	int sem = sem_create(SEM_KEY, 6); 
 
 	// check if init worked
@@ -56,6 +55,7 @@ int main (int argc, char **argv) {
 
 	next_job.sem = sem;
 	next_job.jobs = jobs;
+	next_job.queue = new int[queue_size];
 	next_job.queue_size = queue_size;
 	
 	
@@ -70,12 +70,12 @@ int main (int argc, char **argv) {
 
 	for (int i = 0; i < producers; i++) {
   		pthread_join (producerid[i], NULL);
-		cout << " PRODUCER " << i << " JOINED " << endl; // to delete
+//		cout << " PRODUCER " << i << " JOINED " << endl; // to delete
 	}
 	
 	for (int i = 0; i < consumers; i++){ 
 		pthread_join (consumerid[i], NULL);
-		cout << " CONSUMER " << i << " JOINED " << endl; // to delete
+//		cout << " CONSUMER " << i << " JOINED " << endl; // to delete
 	}
 	sem_close(sem); // alternatively/manually ipcrm -s [number from ipcs]
 
@@ -84,8 +84,6 @@ int main (int argc, char **argv) {
 	delete [] next_job.queue;
 	delete next_job.tail;
 	delete next_job.head;
-	delete next_job.time_last_produced;
-	delete next_job.time_last_consumed;
 
   	return 0; 
 }
@@ -96,10 +94,10 @@ void *producer (void *next_job) {
 	int *head = current_job->head;
 
 	int duration, job, id, jobs, sem;
-	clock_t time_stamp;
 	
 	sem = current_job->sem;
 	jobs = current_job->jobs;
+	
 	sem_wait(sem, 4);
 	id = *(current_job->producer_id);
 	*(current_job->producer_id) = *(current_job->producer_id) + 1;
@@ -110,33 +108,11 @@ void *producer (void *next_job) {
 		sleep(rand() % 5 + 1);
 		duration = rand() % 10 + 1; 
 		
-		while (1) {
-			time_stamp = *(current_job->time_last_consumed); // timestamp 
-			
-			steady_clock::time_point clock_begin = steady_clock::now();
-		
-			sem_wait(sem, 1, 20);
-
-			steady_clock::time_point clock_end = steady_clock::now();
-			steady_clock::duration time_span = clock_end - clock_begin;
-			double nseconds = double(time_span.count()) * steady_clock::period::num / steady_clock::period::den;
-			
-			if (time_stamp == *(current_job->time_last_consumed) && nseconds >=20 ) {
-				sem_wait(sem, 3);
-				cout << "Producer(" << id << "): No more jobs left" << endl;
-				sem_signal(sem, 3);
-				pthread_exit (0); 
-			} else if (time_stamp != *(current_job->time_last_consumed) && nseconds >= 20) 
-				continue;
-			else 
-				break;
-		}
-		
+		if (sem_wait(sem, 1, MAX_SLEEP))
+			break;		
 		
 		sem_wait(sem, 0);
-			
 		current_job->queue[*head] = duration;
-		*(current_job->time_last_produced) = clock(); 
 		job = *head; // maybe change to plus one 
 		*(current_job->head) = (*head + 1) % (current_job->queue_size);
 		sem_signal(sem, 0);
@@ -158,7 +134,6 @@ void *consumer (void *next_job) {
 	job *current_job = (job *) next_job;
 	int *tail = current_job->tail;
 	int duration, job, id, sem;
-	clock_t time_stamp;
 
 	sem = current_job->sem;
 	sem_wait(sem, 5);
@@ -168,30 +143,11 @@ void *consumer (void *next_job) {
 
 	while (1) {
 	
-		while (1) {	
-			time_stamp = *(current_job->time_last_produced); 
-			steady_clock::time_point clock_begin = steady_clock::now();
-			
-			sem_wait(sem, 2, 20);
-			
-			steady_clock::time_point clock_end = steady_clock::now();
-			steady_clock::duration time_span = clock_end - clock_begin;
-			double nseconds = double(time_span.count()) * steady_clock::period::num / steady_clock::period::den;
-			
-			if (time_stamp == *(current_job->time_last_produced) && nseconds >=20 ) {
-				sem_wait(sem, 3);
-				cout << "Consumer(" << id << "): No more jobs left" << endl;
-				sem_signal(sem, 3);
-				pthread_exit (0); 
-			} else if (time_stamp != *(current_job->time_last_produced) && nseconds >= 20) 
-				continue;
-			else 
-				break;
-		}
+		if (sem_wait(sem, 2, MAX_SLEEP))
+			break;
 
 		sem_wait(sem, 0);
 		duration = current_job->queue[*tail];
-		*(current_job->time_last_consumed) = clock(); 
 		job = *tail;
 		*(current_job->tail) = (*tail + 1) % (current_job->queue_size); 
 		sem_signal(sem, 0);
@@ -209,6 +165,11 @@ void *consumer (void *next_job) {
 		sem_signal(sem, 3);
 		
 	}
+	
+	sem_wait(sem, 3);
+	cout << "Consumer(" << id << "): No more jobs left." << endl;
+	sem_signal(sem, 3);
+
 	pthread_exit (0);
 }
 
