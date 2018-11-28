@@ -22,8 +22,8 @@ struct job { // initialise values here?
 	int* tail = new int(0);
 	int* head = new int(0);
 	int queue_size;
-	clock_t* time_last_produced = new clock_t;
-	clock_t* time_last_consumed = new clock_t;
+	steady_clock::time_point* time_last_produced = new steady_clock::time_point;
+	steady_clock::time_point* time_last_consumed = new steady_clock::time_point;
 };
 
 
@@ -96,7 +96,7 @@ void *producer (void *next_job) {
 	int *head = current_job->head;
 
 	int duration, job, id, jobs, sem;
-	clock_t time_stamp;
+	steady_clock::time_point time_stamp;
 	
 	sem = current_job->sem;
 	jobs = current_job->jobs;
@@ -121,6 +121,10 @@ void *producer (void *next_job) {
 			steady_clock::duration time_span = clock_end - clock_begin;
 			double nseconds = double(time_span.count()) * steady_clock::period::num / steady_clock::period::den;
 			
+		
+			steady_clock::duration time_span2 = steady_clock::now() - time_stamp;
+			double dif = double(time_span2.count()) * steady_clock::period::num / steady_clock::period::den;
+			cout << "difference from timestamp " << dif << endl;
 			if (time_stamp == *(current_job->time_last_consumed) && nseconds >=20 ) {
 				sem_wait(sem, 3);
 				cout << "Producer(" << id << "): No more jobs left" << endl;
@@ -136,7 +140,7 @@ void *producer (void *next_job) {
 		sem_wait(sem, 0);
 			
 		current_job->queue[*head] = duration;
-		*(current_job->time_last_produced) = clock(); 
+		*(current_job->time_last_produced) = steady_clock::now(); 
 		job = *head; // maybe change to plus one 
 		*(current_job->head) = (*head + 1) % (current_job->queue_size);
 		sem_signal(sem, 0);
@@ -158,7 +162,7 @@ void *consumer (void *next_job) {
 	job *current_job = (job *) next_job;
 	int *tail = current_job->tail;
 	int duration, job, id, sem;
-	clock_t time_stamp;
+	steady_clock::time_point time_stamp;
 
 	sem = current_job->sem;
 	sem_wait(sem, 5);
@@ -178,6 +182,9 @@ void *consumer (void *next_job) {
 			steady_clock::duration time_span = clock_end - clock_begin;
 			double nseconds = double(time_span.count()) * steady_clock::period::num / steady_clock::period::den;
 			
+			steady_clock::duration time_span2 = steady_clock::now() - time_stamp;
+			double dif = double(time_span2.count()) * steady_clock::period::num / steady_clock::period::den;
+			cout << "difference from timestamp " << dif << endl;
 			if (time_stamp == *(current_job->time_last_produced) && nseconds >=20 ) {
 				sem_wait(sem, 3);
 				cout << "Consumer(" << id << "): No more jobs left" << endl;
@@ -191,7 +198,7 @@ void *consumer (void *next_job) {
 
 		sem_wait(sem, 0);
 		duration = current_job->queue[*tail];
-		*(current_job->time_last_consumed) = clock(); 
+		*(current_job->time_last_consumed) = steady_clock::now();
 		job = *tail;
 		*(current_job->tail) = (*tail + 1) % (current_job->queue_size); 
 		sem_signal(sem, 0);
