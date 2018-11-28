@@ -8,7 +8,6 @@ The Main
 
 void *producer (void *id); 
 void *consumer (void *id);
-void *consumerTimeOut (void *time_out);
 
 struct job { 
 	int sem;
@@ -21,7 +20,7 @@ struct job {
 	int queue_size; 
 };
 
-const int MAX_SLEEP = 20;
+const int MAX_WAIT = 20;
 
 int main (int argc, char **argv) {
 
@@ -63,20 +62,20 @@ int main (int argc, char **argv) {
 	pthread_t producerid[producers];
 	pthread_t consumerid[consumers];
 
-	job next_job;
+	job my_job;
 
-	next_job.sem = sem;
-	next_job.jobs = jobs;
-	next_job.queue = new int[queue_size];
-	next_job.queue_size = queue_size;
+	my_job.sem = sem;
+	my_job.jobs = jobs;
+	my_job.queue = new int[queue_size];
+	my_job.queue_size = queue_size;
 	
 	
 	for (int i = 0; i < producers; i++) {
-		pthread_create (&producerid[i], NULL, producer, (void *) &next_job);
+		pthread_create (&producerid[i], NULL, producer, (void *) &my_job);
 	}
 	
 	for (int i = 0; i < consumers; i++) {
-		pthread_create (&consumerid[i], NULL, consumer, (void *) &next_job);
+		pthread_create (&consumerid[i], NULL, consumer, (void *) &my_job);
 	}
 
 
@@ -90,28 +89,28 @@ int main (int argc, char **argv) {
 
 	sem_close(sem); 
 
-	delete next_job.producer_id;
-	delete next_job.consumer_id;
-	delete [] next_job.queue;
-	delete next_job.tail;
-	delete next_job.head;
+	delete my_job.producer_id;
+	delete my_job.consumer_id;
+	delete [] my_job.queue;
+	delete my_job.tail;
+	delete my_job.head;
 
   	return 0; 
 }
 
-void *producer (void *next_job) {
+void *producer (void *my_job) {
 
-	job *current_job = (job *) next_job; // call job_p later 
-	int *head = current_job->head;
+	job *job_p = (job *) my_job; // call job_p later 
+	int *head = job_p->head;
 
 	int duration, job, id, jobs, sem;
 	
-	sem = current_job->sem;
-	jobs = current_job->jobs;
+	sem = job_p->sem;
+	jobs = job_p->jobs;
 	
 	sem_wait(sem, 4);
-	id = *(current_job->producer_id);
-	*(current_job->producer_id) = *(current_job->producer_id) + 1;
+	id = *(job_p->producer_id);
+	*(job_p->producer_id) = *(job_p->producer_id) + 1;
 	sem_signal(sem, 4);
 	
 	while (jobs) {
@@ -119,13 +118,13 @@ void *producer (void *next_job) {
 		sleep(rand() % 5 + 1);
 		duration = rand() % 10 + 1; 
 		
-		if (sem_wait(sem, 1, MAX_SLEEP))
+		if (sem_wait(sem, 1, MAX_WAIT))
 			break;		
 		
 		sem_wait(sem, 0);
-		current_job->queue[*head] = duration;
+		job_p->queue[*head] = duration;
 		job = *head; // maybe change to plus one 
-		*(current_job->head) = (*head + 1) % (current_job->queue_size);
+		*(job_p->head) = (*head + 1) % (job_p->queue_size);
 		sem_signal(sem, 0);
 		sem_signal(sem, 2);
 
@@ -140,27 +139,27 @@ void *producer (void *next_job) {
 	pthread_exit(0);
 }
 
-void *consumer (void *next_job) {
+void *consumer (void *my_job) {
 
-	job *current_job = (job *) next_job;
-	int *tail = current_job->tail;
+	job *job_p = (job *) my_job;
+	int *tail = job_p->tail;
 	int duration, job, id, sem;
 
-	sem = current_job->sem;
+	sem = job_p->sem;
 	sem_wait(sem, 5);
-	id = *(current_job->consumer_id);
-	*(current_job->consumer_id) = *(current_job->consumer_id) + 1;
+	id = *(job_p->consumer_id);
+	*(job_p->consumer_id) = *(job_p->consumer_id) + 1;
 	sem_signal(sem, 5);
 
 	while (1) {
 	
-		if (sem_wait(sem, 2, MAX_SLEEP))
+		if (sem_wait(sem, 2, MAX_WAIT))
 			break;
 
 		sem_wait(sem, 0);
-		duration = current_job->queue[*tail];
+		duration = job_p->queue[*tail];
 		job = *tail;
-		*(current_job->tail) = (*tail + 1) % (current_job->queue_size); 
+		*(job_p->tail) = (*tail + 1) % (job_p->queue_size); 
 		sem_signal(sem, 0);
 		sem_signal(sem, 1);
 
