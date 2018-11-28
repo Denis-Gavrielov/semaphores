@@ -6,36 +6,26 @@ The Main
 
 #include "helper.h"
 
+using namespace std::chrono;
+
 void *producer (void *id); 
 void *consumer (void *id);
 void *consumerTimeOut (void *time_out);
 
-struct job { // initialise values here? 
+struct job { // initialise values here?
+	int sem;
 	int jobs;
-	int* producer_id; // for producer and consumer
-	int* consumer_id;
+	int* producer_id = new int(1);
+	int* consumer_id = new int(1);
 	int duration;
-	int* queue;
-	int* tail;
-	int* head;
+	int* queue = new int[queue_size];
+	int* tail = new int(0);
+	int* head = new int(0);
 	int queue_size;
 	clock_t* time_last_produced = new clock_t;
 	clock_t* time_last_consumed = new clock_t;
 };
 
-struct TimeOut {
-
-	clock_t* time_stamp;
-	bool* expired;
-};
-
-using namespace std::chrono;
-// need 3 semaphores
-int sem = sem_create(SEM_KEY, 6); 
-/* note: could also be put into main and have pointer pointing 
-to the sem (?)
-don't need pointer actually as this is like a constant.
-*/
 
 int main (int argc, char **argv) {
 
@@ -43,6 +33,7 @@ int main (int argc, char **argv) {
 	int jobs = *argv[2] - '0';
 	int producers = *argv[3] - '0';
 	int consumers = *argv[4] - '0';
+	int sem = sem_create(SEM_KEY, 6); 
 
 	// check if init worked
 	int returns = sem_init(sem, 0, 1); // mutex
@@ -69,13 +60,9 @@ int main (int argc, char **argv) {
 
 	job next_job;
 
+	next_job.sem = sem;
 	next_job.jobs = jobs;
-	next_job.queue = new int[queue_size];
-	next_job.tail = new int(0);
-	next_job.head = new int(0);
 	next_job.queue_size = queue_size;
-	next_job.producer_id = new int(1);
-	next_job.consumer_id = new int(1);
 	
 	
 	for (int i = 0; i < producers; i++) {
@@ -98,7 +85,14 @@ int main (int argc, char **argv) {
 	}
 	sem_close(sem); // alternatively/manually ipcrm -s [number from ipcs]
 
-	// don't forget to clear the memory from heap;
+	delete next_job.producer_id;
+	delete next_job.consumer_id;
+	delete [] next_job.queue;
+	delete next_job.tail;
+	delete next_job.head;
+	delete next_job.time_last_produced;
+	delete next_job.time_last_consumed;
+
   	return 0; 
 }
 
@@ -107,9 +101,10 @@ void *producer (void *next_job) {
 	job *current_job = (job *) next_job; // call job_p later 
 	int *head = current_job->head;
 
-	int duration, job, id, jobs;
+	int duration, job, id, jobs, sem;
 	clock_t time_stamp;
 	
+	sem = current_job->sem;
 	jobs = current_job->jobs;
 	sem_wait(sem, 4);
 	id = *(current_job->producer_id);
@@ -125,8 +120,10 @@ void *producer (void *next_job) {
 			time_stamp = *(current_job->time_last_consumed); // timestamp 
 			steady_clock::time_point clock_begin = steady_clock::now();
 			
-			sem_wait(sem, 1, 20); // end this wait if wait for 20s and quit consumer
-			
+		//	int flag = sem_wait(sem, 1, 20); // end this wait if wait for 20s and quit consumer
+		//	cout << "producer flag is: " << flag << endl;
+			sem_wait(sem, 1, 20);
+
 			steady_clock::time_point clock_end = steady_clock::now();
 			steady_clock::duration time_span = clock_end - clock_begin;
 			double nseconds = double(time_span.count()) * steady_clock::period::num / steady_clock::period::den;
@@ -167,10 +164,10 @@ void *consumer (void *next_job) {
 
 	job *current_job = (job *) next_job;
 	int *tail = current_job->tail;
-	int duration, job, id;
-	bool* expired = new bool(0);
+	int duration, job, id, sem;
 	clock_t time_stamp;
-	
+
+	sem = current_job->sem;
 	sem_wait(sem, 5);
 	id = *(current_job->consumer_id);
 	*(current_job->consumer_id) = *(current_job->consumer_id) + 1;
@@ -182,8 +179,12 @@ void *consumer (void *next_job) {
 			time_stamp = *(current_job->time_last_produced); 
 			steady_clock::time_point clock_begin = steady_clock::now();
 			
+			//int flag = sem_wait(sem, 2, 20);
+			//cout << "consumer flag is: " << flag << endl;
 			sem_wait(sem, 2, 20);
-
+			// change time stamp to difference between last timestamp and now (?)
+			
+			
 			steady_clock::time_point clock_end = steady_clock::now();
 			steady_clock::duration time_span = clock_end - clock_begin;
 			double nseconds = double(time_span.count()) * steady_clock::period::num / steady_clock::period::den;
