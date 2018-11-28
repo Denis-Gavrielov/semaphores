@@ -55,8 +55,8 @@ void sem_wait (int id, short unsigned int num, int i)
   struct sembuf op[] = {
     {num, -1, SEM_UNDO}
   };
-  const timespec bla = {i};
-  semtimedop (id, op, 1, &bla);
+  const timespec time_struct = {i};
+  semtimedop (id, op, 1, &time_struct);
 }
 
 void sem_signal (int id, short unsigned int num)
