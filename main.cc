@@ -6,47 +6,59 @@ The Main
 
 #include "helper.h"
 
-using namespace std::chrono;
-
 void *producer (void *id); 
 void *consumer (void *id);
 void *consumerTimeOut (void *time_out);
 
-struct job { // initialise values here?
+struct job { 
 	int sem;
 	int jobs;
 	int* producer_id = new int(1);
 	int* consumer_id = new int(1);
-	int duration;
 	int* queue;
 	int* tail = new int(0);
 	int* head = new int(0);
-	int queue_size; // needed?
+	int queue_size; 
 };
 
 const int MAX_SLEEP = 20;
 
 int main (int argc, char **argv) {
 
+	if (argc != 5) {
+		cerr << "Invalid amount of input parameters specified (need 4)." << endl;
+		return -1;
+	} 
+	for (int i = 1; i <= 4; i++) {
+		if (check_arg(argv[i]) == -1) {
+			cout << "Wrong input parameter! (For number " << i << ")" << endl;
+			return -1;
+		}
+	}
 	int queue_size = check_arg(argv[1]);
 	int jobs = check_arg(argv[2]);
 	int producers = check_arg(argv[3]);
 	int consumers = check_arg(argv[4]);
+
 	int sem = sem_create(SEM_KEY, 6); 
 
-	// check if init worked
+	// test if init worked
 	if (sem_init(sem, 0, 1)) // mutex
-		cout << "SEMAPHORE NOT CREATED" << endl;
+		cerr << "SEMAPHORE 0 NOT CREATED" << endl;
 	if (sem_init(sem, 1, queue_size)) // queue not full
-		cout << "SEMAPHORE NOT CREATED" << endl;
+		cerr << "SEMAPHORE 1 NOT CREATED" << endl;
 	if (sem_init(sem, 2, 0)) // queue not empty
-		cout << "SEMAPHORE NOT CREATED" << endl;
+		cerr << "SEMAPHORE 2 NOT CREATED" << endl;
 	if (sem_init(sem, 3, 1)) // printing
-		cout << "SEMAPHORE NOT CREATED" << endl;
+		cerr << "SEMAPHORE 3 NOT CREATED" << endl;
 	if (sem_init(sem, 4, 1)) // producer_id allocation
-		cout << "SEMAPHORE NOT CREATED" << endl;
-	if (sem_init(sem, 5, 1)) // consumer_id allocation
-		cout << "SEMAPHORE NOT CREATED" << endl;
+		cerr << "SEMAPHORE 4 NOT CREATED" << endl;
+	if (sem_init(sem, 5, 1)){ // consumer_id allocation
+		cerr << "SEMAPHORE 5 NOT CREATED" << endl;
+		cerr << "-----------------NOTE: if all 6 semaphores are not "
+			<< "created, try to delete the "
+			<< "last semaphore with ipcrm -s [id].---------------" << endl;
+	}
 
 	pthread_t producerid[producers];
 	pthread_t consumerid[consumers];
@@ -70,14 +82,13 @@ int main (int argc, char **argv) {
 
 	for (int i = 0; i < producers; i++) {
   		pthread_join (producerid[i], NULL);
-//		cout << " PRODUCER " << i << " JOINED " << endl; // to delete
 	}
 	
 	for (int i = 0; i < consumers; i++){ 
 		pthread_join (consumerid[i], NULL);
-//		cout << " CONSUMER " << i << " JOINED " << endl; // to delete
 	}
-	sem_close(sem); // alternatively/manually ipcrm -s [number from ipcs]
+
+	sem_close(sem); 
 
 	delete next_job.producer_id;
 	delete next_job.consumer_id;
@@ -119,7 +130,7 @@ void *producer (void *next_job) {
 		sem_signal(sem, 2);
 
 		sem_wait(sem, 3);
-		cout << "Producer(" << id << "): Job id " << job << " duration " << duration << endl;
+		cout << "Producer(" << id << "): Job id " << job + 1 << " duration " << duration << endl;
 		sem_signal(sem, 3);
 	
 	}
@@ -154,14 +165,14 @@ void *consumer (void *next_job) {
 		sem_signal(sem, 1);
 
 		sem_wait(sem, 3);
-		cout << "Consumer(" << id << "): Job id " << job << " executing sleep"
+		cout << "Consumer(" << id << "): Job id " << job + 1 << " executing sleep"
 			<< " duration " << duration << endl;
 		sem_signal(sem, 3);
 
 		sleep(duration);
 		
 		sem_wait(sem, 3);
-		cout << "Consumer(" << id << "): Job id " << job << " completed" << endl;
+		cout << "Consumer(" << id << "): Job id " << job + 1 << " completed" << endl;
 		sem_signal(sem, 3);
 		
 	}
