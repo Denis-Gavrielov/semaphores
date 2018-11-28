@@ -70,22 +70,17 @@ int main (int argc, char **argv) {
 	my_job.queue_size = queue_size;
 	
 	
-	for (int i = 0; i < producers; i++) {
+	for (int i = 0; i < producers; i++) 
 		pthread_create (&producerid[i], NULL, producer, (void *) &my_job);
-	}
 	
-	for (int i = 0; i < consumers; i++) {
+	for (int i = 0; i < consumers; i++) 
 		pthread_create (&consumerid[i], NULL, consumer, (void *) &my_job);
-	}
 
-
-	for (int i = 0; i < producers; i++) {
+	for (int i = 0; i < producers; i++) 
   		pthread_join (producerid[i], NULL);
-	}
 	
-	for (int i = 0; i < consumers; i++){ 
+	for (int i = 0; i < consumers; i++)
 		pthread_join (consumerid[i], NULL);
-	}
 
 	sem_close(sem); 
 
@@ -100,7 +95,7 @@ int main (int argc, char **argv) {
 
 void *producer (void *my_job) {
 
-	job *job_p = (job *) my_job; // call job_p later 
+	job *job_p = (job *) my_job;
 	int *head = job_p->head;
 
 	int duration, job, id, jobs, sem;
@@ -123,13 +118,14 @@ void *producer (void *my_job) {
 		
 		sem_wait(sem, 0);
 		job_p->queue[*head] = duration;
-		job = *head; // maybe change to plus one 
+		job = *head; 
 		*(job_p->head) = (*head + 1) % (job_p->queue_size);
 		sem_signal(sem, 0);
 		sem_signal(sem, 2);
 
 		sem_wait(sem, 3);
-		cout << "Producer(" << id << "): Job id " << job + 1 << " duration " << duration << endl;
+		cout << "Producer(" << id << "): Job id " << job + 1 
+			<< " duration " << duration << endl;
 		sem_signal(sem, 3);
 	
 	}
@@ -163,7 +159,6 @@ void *consumer (void *my_job) {
 	
 		if (sem_wait(sem, 2, MAX_WAIT)) 
 			break;
-		
 
 		sem_wait(sem, 0);
 		duration = job_p->queue[*tail];

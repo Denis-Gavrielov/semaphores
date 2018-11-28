@@ -39,3 +39,7 @@ Producer(2): No more jobs to generate.
 Consumer(3): No more jobs left.
 Consumer(1): No more jobs left.
 Consumer(2): No more jobs left.
+
+c1: 13
+c2: 9
+c3: 5

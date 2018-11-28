@@ -50,6 +50,8 @@ void sem_wait (int id, short unsigned int num)
   semop (id, op, 1);
 }
 
+/* Overloaded sem_wait function returning 0 if signal was received, 
+else -1.*/
 int sem_wait (int id, short unsigned int num, int seconds)
 {
   struct sembuf op[] = {
