@@ -20,17 +20,17 @@ struct job {
 	int queue_size; 
 };
 
-const int MAX_WAIT = 5; // change to 20
+const int MAX_WAIT = 20; 
 
 int main (int argc, char **argv) {
 
 	if (argc != 5) {
-		cerr << "Invalid amount of input parameters specified (need 4)." << endl;
+		fprintf (stderr, "Invalid amount of input parameters specified (need 4).\n");
 		return -1;
 	} 
 	for (int i = 1; i <= 4; i++) {
 		if (check_arg(argv[i]) == -1) {
-			cout << "Wrong input parameter! (For number " << i << ")" << endl;
+			fprintf (stderr, "Wrong input parameter for parameter %d\n", i);
 			return -1;
 		}
 	}
@@ -42,22 +42,13 @@ int main (int argc, char **argv) {
 	int sem = sem_create(SEM_KEY, 6); 
 
 	// test if init worked
-	if (sem_init(sem, 0, 1)) // mutex
-		cerr << "SEMAPHORE 0 NOT CREATED" << endl;
-	if (sem_init(sem, 1, queue_size)) // queue not full
-		cerr << "SEMAPHORE 1 NOT CREATED" << endl;
-	if (sem_init(sem, 2, 0)) // queue not empty
-		cerr << "SEMAPHORE 2 NOT CREATED" << endl;
-	if (sem_init(sem, 3, 1)) // printing
-		cerr << "SEMAPHORE 3 NOT CREATED" << endl;
-	if (sem_init(sem, 4, 1)) // producer_id allocation
-		cerr << "SEMAPHORE 4 NOT CREATED" << endl;
-	if (sem_init(sem, 5, 1)){ // consumer_id allocation
-		cerr << "SEMAPHORE 5 NOT CREATED" << endl;
-		cerr << "-----------------NOTE: if all 6 semaphores are not "
-			<< "created, try to delete the "
-			<< "last semaphore with ipcrm -s [id].---------------" << endl;
-	}
+	sem_init(sem, 0, 1); // mutex
+	sem_init(sem, 1, queue_size); // queue not full
+	sem_init(sem, 2, 0); // queue not empty
+	sem_init(sem, 3, 1); // printing
+	sem_init(sem, 4, 1); // producer_id allocation
+	sem_init(sem, 5, 1); // consumer_id allocation
+	
 
 	pthread_t producerid[producers];
 	pthread_t consumerid[consumers];
@@ -88,8 +79,6 @@ int main (int argc, char **argv) {
 		if (pthread_join (consumerid[i], NULL))
 			main_error_handler(i, "Joining consumer thread");
 	}
-	sem_close(sem);
-	// try two sem_close in a row. 
 
 	delete my_job.producer_id;
 	delete my_job.consumer_id;
@@ -97,7 +86,9 @@ int main (int argc, char **argv) {
 	delete my_job.tail;
 	delete my_job.head;
 
-  	return 0; 
+	sem_close(sem);
+  	
+	return 0; 
 }
 
 /*
@@ -139,24 +130,9 @@ void *producer (void *my_job) {
 		sem_signal(sem, id, 0);
 		sem_signal(sem, id, 2);
 
-	//	cout << "Producer(" << id << "): Job id " << job + 1 
-	//		<< " duration " << duration << endl;
-		printf("Producer(%d): Job id %d duration %d\n", id, job + 1, duration);	
+		fprintf(stderr, "Producer(%d): Job id %d duration %d\n", id, job + 1, duration);	
 	}
-//	if (jobs) {
-//		if (sem_wait(sem, 3)) {
-//			thread_error_handler (id, sem);
-//			pthread_exit (0);
-//		}
-//		cout << "Producer(" << id << "): Quitting, because no space to add jobs."
-//		<< endl;
-//		sem_signal(sem, 3);
-//	} else {
-//		sem_wait(sem, 3);
-//		cout << "Producer(" << id << "): No more jobs to generate." << endl;
-//		sem_signal(sem, 3);
-//	}
-	printf("Producer(%d): No more jobs to generate.\n", id);
+	fprintf(stderr, "Producer(%d): No more jobs to generate.\n", id);
 
 	pthread_exit(0);
 }
@@ -187,11 +163,11 @@ void *consumer (void *my_job) {
 		sem_signal(sem, id, 0);
 		sem_signal(sem, id, 1);
 
-		printf("Consumer(%d): Job id %d executing sleep\n", id, job + 1);
+		fprintf(stderr, "Consumer(%d): Job id %d executing sleep duration\n", id, job + 1, duration);
 		
 		sleep(duration);
 		
-		printf("Consumer(%d): Job id %d completed\n", id, job + 1);	
+		fprintf(stderr, "Consumer(%d): Job id %d completed\n", id, job + 1);	
 		
 	}
 }

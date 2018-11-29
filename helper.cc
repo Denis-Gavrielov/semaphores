@@ -1,5 +1,6 @@
 /******************************************************************
  * The helper file that contains the following helper functions:
+ * thread_error_handler - Checks if 
  * check_arg - Checks if command line input is a number and returns it
  * sem_create - Create number of sempahores required in a semaphore array
  * sem_init - Initialise particular semaphore in semaphore array
@@ -10,6 +11,36 @@
 
 # include "helper.h"
 #include <stdio.h>
+
+void thread_error_handler (const int &id, const int &sem, string type) {
+	
+	type[0] = toupper(type[0]);
+	
+	if (errno == EAGAIN && type == "Consumer") {
+		fprintf(stderr, "Consumer(%i): No more jobs left.\n", id);
+	} else if (errno == EAGAIN && type == "Producer") {
+		fprintf(stderr, "Producer(%i): Quitting, because no space to add jobs.\n", id);
+	} else if (id == -1) {
+		fprintf(stderr, "%s: quit because of error: %s\n", type.c_str(), strerror(errno));	
+	} else {
+		fprintf(stderr, "%s(%i): quit because of error: %s\n", type.c_str(), id, strerror(errno));
+	}
+	pthread_exit(0);
+}
+
+void main_error_handler (const int i, string type) {
+	fprintf(stderr, "%s number %d returns error: %s\n", type.c_str(), i, strerror(errno));
+}
+
+void sem_error_handler (const int sem, string func) {
+
+	fprintf(stderr, "%s exited with error: %s\n", func.c_str(), strerror(errno));
+	if (func == "sem_init") 
+		sem_close(sem);
+	
+	pthread_exit(0);
+}
+
 int check_arg (char *buffer)
 {
   int i, num = 0, temp = 0;
@@ -25,32 +56,13 @@ int check_arg (char *buffer)
   return num;
 }
 
-void thread_error_handler (const int &id, const int &sem, string type) {
-	
-	type[0] = toupper(type[0]);
-	
-	if (errno == EAGAIN && type == "Consumer") {
-		printf("Consumer(%i): No more jobs left.\n", id);
-	} else if (errno == EAGAIN && type == "Producer") {
-		printf("Producer(%i): Quitting, because no space to add jobs.\n", id);
-	} else if (id == -1) {
-		printf("%s: quit because of error: %s\n", type.c_str(), strerror(errno));	
-	} else {
-		printf("%s(%i): quit because of error: %s\n", type.c_str(), id, strerror(errno));
-	}
-	pthread_exit(0);
-}
-
-void main_error_handler (const int i, string type) {
-	printf("%s number %d returns error: %s", type.c_str(), i, strerror(errno));
-}
-
-
 int sem_create (key_t key, int num)
 {
   int id;
-  if ((id = semget (key, num,  0666 | IPC_CREAT | IPC_EXCL)) < 0)
+  if ((id = semget (key, num,  0666 | IPC_CREAT | IPC_EXCL)) < 0) {
+  	sem_error_handler (id, __FUNCTION__);
     return -1;
+  }
   return id;
 }
 
@@ -58,8 +70,10 @@ int sem_init (int id, int num, int value)
 {
   union semun semctl_arg;
   semctl_arg.val = value;
-  if (semctl (id, num, SETVAL, semctl_arg) < 0)
-    return -1;
+  if (semctl (id, num, SETVAL, semctl_arg) < 0) {
+  	sem_error_handler (id, __FUNCTION__);
+  	return -1;
+  }
   return 0;
 }
 
@@ -97,7 +111,9 @@ void sem_signal (int sem, int id, short unsigned int num, string caller)
 
 int sem_close (int id)
 {
-  if (semctl (id, 0, IPC_RMID, 0) < 0)
-    return -1;
+  if (semctl (id, 0, IPC_RMID, 0) < 0){
+  	sem_error_handler (id, __FUNCTION__);
+  	return -1;
+  }
   return 0;
 }
