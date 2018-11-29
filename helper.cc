@@ -56,12 +56,13 @@ int sem_init (int id, int num, int value)
   return 0;
 }
 
-int sem_wait (int id, short unsigned int num)
+void sem_wait (int sem, int id, short unsigned int num, string caller)
 {
   struct sembuf op[] = {
     {num, -1, SEM_UNDO}
   };
-  return semop (id, op, 1);
+  if (semop (sem, op, 1))
+  	thread_error_handler(id, sem, caller);
 }
 
 /* Overloaded sem_wait function returning 0 if signal was received, 
@@ -76,12 +77,13 @@ void sem_wait (int sem, int id, short unsigned int num, int seconds, string call
   	thread_error_handler(id, sem, caller); 
 }
 
-int sem_signal (int id, short unsigned int num)
+void sem_signal (int sem, int id, short unsigned int num, string caller)
 {
   struct sembuf op[] = {
     {num, 1, SEM_UNDO}
   };
-  return semop (id, op, 1);
+  if (semop (sem, op, 1))
+  	thread_error_handler(id, sem, caller);
 }
 
 int sem_close (int id)

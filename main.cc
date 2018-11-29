@@ -108,13 +108,15 @@ void *producer (void *my_job) {
 
 	int duration, job, id, jobs, sem;
 	
+	id = 2; 
+
 	sem = job_p->sem;
 	jobs = job_p->jobs;
 	
-	sem_wait(sem, 4);
-	id = *(job_p->producer_id);
-	*(job_p->producer_id) = *(job_p->producer_id) + 1;
-	sem_signal(sem, 4);
+//	sem_wait(sem, 4);
+//	id = *(job_p->producer_id);
+//	*(job_p->producer_id) = *(job_p->producer_id) + 1;
+//	sem_signal(sem, 4);
 	
 	while (jobs) {
 		jobs--;
@@ -123,32 +125,31 @@ void *producer (void *my_job) {
 		
 		sem_wait(sem, id, 1, MAX_WAIT);
 
-		sem_wait(sem, 0);
+		sem_wait(sem, id, 0);
 		job_p->queue[*head] = duration;
 		job = *head; 
 		*(job_p->head) = (*head + 1) % (job_p->queue_size);
-		sem_signal(sem, 0);
-		sem_signal(sem, 2);
+		sem_signal(sem, id, 0);
+		sem_signal(sem, id, 2);
 
-		sem_wait(sem, 3);
-		cout << "Producer(" << id << "): Job id " << job + 1 
-			<< " duration " << duration << endl;
-		sem_signal(sem, 3);
-	
+	//	cout << "Producer(" << id << "): Job id " << job + 1 
+	//		<< " duration " << duration << endl;
+		printf("Producer(%d): Job id %d duration %d\n", id, job + 1, duration);	
 	}
-	if (jobs) {
-		if (sem_wait(sem, 3)) {
-			thread_error_handler (id, sem);
-			pthread_exit (0);
-		}
-		cout << "Producer(" << id << "): Quitting, because no space to add jobs."
-		<< endl;
-		sem_signal(sem, 3);
-	} else {
-		sem_wait(sem, 3);
-		cout << "Producer(" << id << "): No more jobs to generate." << endl;
-		sem_signal(sem, 3);
-	}
+//	if (jobs) {
+//		if (sem_wait(sem, 3)) {
+//			thread_error_handler (id, sem);
+//			pthread_exit (0);
+//		}
+//		cout << "Producer(" << id << "): Quitting, because no space to add jobs."
+//		<< endl;
+//		sem_signal(sem, 3);
+//	} else {
+//		sem_wait(sem, 3);
+//		cout << "Producer(" << id << "): No more jobs to generate." << endl;
+//		sem_signal(sem, 3);
+//	}
+	printf("Producer(%d): No more jobs to generate.\n", id);
 
 	pthread_exit(0);
 }
@@ -159,69 +160,32 @@ void *consumer (void *my_job) {
 	int *tail = job_p->tail;
 	int duration, job, id, sem;
 
+	id = 1;
+
 	sem = job_p->sem;
-	sem_wait(sem, 5); // extra error handler for without id
-	id = *(job_p->consumer_id);
-	*(job_p->consumer_id) = *(job_p->consumer_id) + 1;
-	sem_signal(sem, 5);
+//	sem_wait(sem, 5); // extra error handler for without id
+//	id = *(job_p->consumer_id);
+//	*(job_p->consumer_id) = *(job_p->consumer_id) + 1;
+//	sem_signal(sem, 5);
 
 	while (1) {
 	
 		sem_wait(sem, id, 2, MAX_WAIT);
-
-
-		if (sem_wait(sem, 0)) {
-			thread_error_handler (id, sem);
-			pthread_exit (0);
-		}
-		
+		sem_wait(sem, id, 0);
 		duration = job_p->queue[*tail];
 		job = *tail;
 		*(job_p->tail) = (*tail + 1) % (job_p->queue_size); 
 		
-		if (sem_signal(sem, 0)){
-			thread_error_handler (id, sem);
-			pthread_exit (0);
-		}
-		if (sem_signal(sem, 1)){
-			thread_error_handler (id, sem);
-			pthread_exit (0);
-		}
+		sem_signal(sem, id, 0);
+		sem_signal(sem, id, 1);
 
-		if (sem_wait(sem, 3)){
-			thread_error_handler (id, sem);
-			pthread_exit (0);
-		}
-		cout << "Consumer(" << id << "): Job id " << job + 1 << " executing sleep"
-			<< " duration " << duration << endl;
-		if (sem_signal(sem, 3)){
-			thread_error_handler (id, sem);
-			pthread_exit (0);
-		}
+		printf("Consumer(%d): Job id %d executing sleep\n", id, job + 1);
 
 		sleep(duration);
 		
-		if (sem_wait(sem, 3)){
-			thread_error_handler (id, sem);
-			pthread_exit (0);
-		}
-		cout << "Consumer(" << id << "): Job id " << job + 1 << " completed" << endl;
-		if (sem_signal(sem, 3)){
-			thread_error_handler (id, sem);
-			pthread_exit (0);
-		}
+//		cout << "Consumer(" << id << "): Job id " << job + 1 << " completed" << endl;
+		printf("Consumer(%d): Job id %d completed\n", id, job + 1);	
 		
 	}
-	if (sem_wait(sem, 3)){
-		thread_error_handler (id, sem);
-		pthread_exit (0);
-	}
-	cout << "Consumer(" << id << "): No more jobs left." << endl;
-	if (sem_signal(sem, 3)){
-			thread_error_handler (id, sem);
-			pthread_exit (0);
-	}
-	
-	pthread_exit (0);
 }
 

@@ -34,7 +34,7 @@ void thread_error_handler (const int &id, const int &sem, string type = __builti
 int check_arg (char *);
 int sem_create (key_t, int);
 int sem_init (int, int, int);
-int sem_wait (int, short unsigned int);
+void sem_wait (int sem, int id, short unsigned int, string type = __builtin_FUNCTION());
 void sem_wait (int sem, int id, short unsigned int, int, string type = __builtin_FUNCTION());
-int sem_signal (int, short unsigned int);
+void sem_signal (int sem, int id, short unsigned int, string type = __builtin_FUNCTION());
 int sem_close (int);
