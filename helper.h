@@ -31,6 +31,7 @@ union semun {
 };
 
 void thread_error_handler (const int &id, const int &sem, string type = __builtin_FUNCTION());
+void main_error_handler (const int i, string type);
 int check_arg (char *);
 int sem_create (key_t, int);
 int sem_init (int, int, int);

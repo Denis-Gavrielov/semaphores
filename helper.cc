@@ -28,16 +28,23 @@ int check_arg (char *buffer)
 void thread_error_handler (const int &id, const int &sem, string type) {
 	
 	type[0] = toupper(type[0]);
-		
+	
 	if (errno == EAGAIN && type == "Consumer") {
 		printf("Consumer(%i): No more jobs left.\n", id);
 	} else if (errno == EAGAIN && type == "Producer") {
 		printf("Producer(%i): Quitting, because no space to add jobs.\n", id);
+	} else if (id == -1) {
+		printf("%s: quit because of error: %s\n", type.c_str(), strerror(errno));	
 	} else {
 		printf("%s(%i): quit because of error: %s\n", type.c_str(), id, strerror(errno));
 	}
 	pthread_exit(0);
 }
+
+void main_error_handler (const int i, string type) {
+	printf("%s number %d returns error: %s", type.c_str(), i, strerror(errno));
+}
+
 
 int sem_create (key_t key, int num)
 {
@@ -76,6 +83,8 @@ void sem_wait (int sem, int id, short unsigned int num, int seconds, string call
   if (semtimedop (sem, op, 1, &time_struct)) 
   	thread_error_handler(id, sem, caller); 
 }
+
+
 
 void sem_signal (int sem, int id, short unsigned int num, string caller)
 {
