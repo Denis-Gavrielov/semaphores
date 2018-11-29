@@ -121,11 +121,7 @@ void *producer (void *my_job) {
 		sleep(rand() % 5 + 1);
 		duration = rand() % 10 + 1; 
 		
-		if (sem_wait(sem, 1, MAX_WAIT)) {
-
-			//cout << errno << endl;	
-			break;		
-		}
+		sem_wait(sem, id, 1, MAX_WAIT);
 
 		sem_wait(sem, 0);
 		job_p->queue[*head] = duration;
@@ -171,13 +167,8 @@ void *consumer (void *my_job) {
 
 	while (1) {
 	
-		if (sem_wait(sem, 2, MAX_WAIT)) {
-		//	if (errno == EAGAIN) 			
-		//		break;
+		sem_wait(sem, id, 2, MAX_WAIT);
 
-			thread_error_handler (id, sem);
-			pthread_exit (0);
-		}
 
 		if (sem_wait(sem, 0)) {
 			thread_error_handler (id, sem);

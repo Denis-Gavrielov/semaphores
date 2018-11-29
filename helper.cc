@@ -28,15 +28,15 @@ int check_arg (char *buffer)
 void thread_error_handler (const int &id, const int &sem, string type) {
 	
 	type[0] = toupper(type[0]);
-	int handle_error = errno; // save error, in case it gets overwritten below
-	
-	printf("Error message print\n");
-//	sem_wait(sem, 3);
-//	cerr << type << "(" << id << "): quit because of error: " 
-//		<< strerror(handle_error) << endl;
-//	sem_signal(sem, 3);
-
-//	pthread_exit(0);
+		
+	if (errno == EAGAIN && type == "Consumer") {
+		printf("Consumer(%i): No more jobs left.\n", id);
+	} else if (errno == EAGAIN && type == "Producer") {
+		printf("Producer(%i): Quitting, because no space to add jobs.\n", id);
+	} else {
+		printf("%s(%i): quit because of error: %s\n", type.c_str(), id, strerror(errno));
+	}
+	pthread_exit(0);
 }
 
 int sem_create (key_t key, int num)
@@ -66,13 +66,14 @@ int sem_wait (int id, short unsigned int num)
 
 /* Overloaded sem_wait function returning 0 if signal was received, 
 else -1.*/
-int sem_wait (int id, short unsigned int num, int seconds)
+void sem_wait (int sem, int id, short unsigned int num, int seconds, string caller)
 {
   struct sembuf op[] = {
     {num, -1, SEM_UNDO}
   };
   const timespec time_struct = {seconds};
-  return semtimedop (id, op, 1, &time_struct);
+  if (semtimedop (sem, op, 1, &time_struct)) 
+  	thread_error_handler(id, sem, caller); 
 }
 
 int sem_signal (int id, short unsigned int num)
