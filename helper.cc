@@ -9,7 +9,7 @@
  ******************************************************************/
 
 # include "helper.h"
-
+#include <stdio.h>
 int check_arg (char *buffer)
 {
   int i, num = 0, temp = 0;
@@ -30,10 +30,11 @@ void thread_error_handler (const int &id, const int &sem, string type) {
 	type[0] = toupper(type[0]);
 	int handle_error = errno; // save error, in case it gets overwritten below
 	
-	sem_wait(sem, 3);
-	cerr << type << "(" << id << "): quit because of error: " 
-		<< strerror(handle_error) << endl;
-	sem_signal(sem, 3);
+	printf("Error message print\n");
+//	sem_wait(sem, 3);
+//	cerr << type << "(" << id << "): quit because of error: " 
+//		<< strerror(handle_error) << endl;
+//	sem_signal(sem, 3);
 
 //	pthread_exit(0);
 }
