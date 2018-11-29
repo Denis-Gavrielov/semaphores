@@ -25,6 +25,19 @@ int check_arg (char *buffer)
   return num;
 }
 
+void thread_error_handler (const int &id, const int &sem, string type) {
+	
+	type[0] = toupper(type[0]);
+	int handle_error = errno; // save error, in case it gets overwritten below
+	
+	sem_wait(sem, 3);
+	cerr << type << "(" << id << "): quit because of error: " 
+		<< strerror(handle_error) << endl;
+	sem_signal(sem, 3);
+
+//	pthread_exit(0);
+}
+
 int sem_create (key_t key, int num)
 {
   int id;
@@ -42,12 +55,12 @@ int sem_init (int id, int num, int value)
   return 0;
 }
 
-void sem_wait (int id, short unsigned int num)
+int sem_wait (int id, short unsigned int num)
 {
   struct sembuf op[] = {
     {num, -1, SEM_UNDO}
   };
-  semop (id, op, 1);
+  return semop (id, op, 1);
 }
 
 /* Overloaded sem_wait function returning 0 if signal was received, 
@@ -61,12 +74,12 @@ int sem_wait (int id, short unsigned int num, int seconds)
   return semtimedop (id, op, 1, &time_struct);
 }
 
-void sem_signal (int id, short unsigned int num)
+int sem_signal (int id, short unsigned int num)
 {
   struct sembuf op[] = {
     {num, 1, SEM_UNDO}
   };
-  semop (id, op, 1);
+  return semop (id, op, 1);
 }
 
 int sem_close (int id)

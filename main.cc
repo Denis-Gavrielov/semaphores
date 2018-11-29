@@ -20,7 +20,7 @@ struct job {
 	int queue_size; 
 };
 
-const int MAX_WAIT = 20;
+const int MAX_WAIT = 5; // change to 20
 
 int main (int argc, char **argv) {
 
@@ -93,6 +93,14 @@ int main (int argc, char **argv) {
   	return 0; 
 }
 
+/*
+idea: have the sem_wait function calling the handler immediately, if 
+semop returns -1. then the handler prints an informative message and exits
+from the thread. Need to overload the sem_wait then to take in an int for just 
+sem in the case of the sem_wait around the id allocation, and a struct with
+additionally the job id. 
+
+*/
 void *producer (void *my_job) {
 
 	job *job_p = (job *) my_job;
@@ -113,9 +121,12 @@ void *producer (void *my_job) {
 		sleep(rand() % 5 + 1);
 		duration = rand() % 10 + 1; 
 		
-		if (sem_wait(sem, 1, MAX_WAIT))
+		if (sem_wait(sem, 1, MAX_WAIT)) {
+
+			//cout << errno << endl;	
 			break;		
-		
+		}
+
 		sem_wait(sem, 0);
 		job_p->queue[*head] = duration;
 		job = *head; 
@@ -130,7 +141,10 @@ void *producer (void *my_job) {
 	
 	}
 	if (jobs) {
-		sem_wait(sem, 3);
+		if (sem_wait(sem, 3)) {
+			thread_error_handler (id, sem);
+			pthread_exit (0);
+		}
 		cout << "Producer(" << id << "): Quitting, because no space to add jobs."
 		<< endl;
 		sem_signal(sem, 3);
@@ -150,38 +164,72 @@ void *consumer (void *my_job) {
 	int duration, job, id, sem;
 
 	sem = job_p->sem;
-	sem_wait(sem, 5);
+	sem_wait(sem, 5); // extra error handler for without id
 	id = *(job_p->consumer_id);
 	*(job_p->consumer_id) = *(job_p->consumer_id) + 1;
 	sem_signal(sem, 5);
 
 	while (1) {
 	
-		if (sem_wait(sem, 2, MAX_WAIT)) 
-			break;
+		if (sem_wait(sem, 2, MAX_WAIT)) {
+		//	if (errno == EAGAIN) 			
+		//		break;
 
-		sem_wait(sem, 0);
+			thread_error_handler (id, sem);
+			pthread_exit (0);
+		}
+
+		if (sem_wait(sem, 0)) {
+			thread_error_handler (id, sem);
+			pthread_exit (0);
+		}
+		
 		duration = job_p->queue[*tail];
 		job = *tail;
 		*(job_p->tail) = (*tail + 1) % (job_p->queue_size); 
-		sem_signal(sem, 0);
-		sem_signal(sem, 1);
+		
+		if (sem_signal(sem, 0)){
+			thread_error_handler (id, sem);
+			pthread_exit (0);
+		}
+		if (sem_signal(sem, 1)){
+			thread_error_handler (id, sem);
+			pthread_exit (0);
+		}
 
-		sem_wait(sem, 3);
+		if (sem_wait(sem, 3)){
+			thread_error_handler (id, sem);
+			pthread_exit (0);
+		}
 		cout << "Consumer(" << id << "): Job id " << job + 1 << " executing sleep"
 			<< " duration " << duration << endl;
-		sem_signal(sem, 3);
+		if (sem_signal(sem, 3)){
+			thread_error_handler (id, sem);
+			pthread_exit (0);
+		}
 
 		sleep(duration);
 		
-		sem_wait(sem, 3);
+		if (sem_wait(sem, 3)){
+			thread_error_handler (id, sem);
+			pthread_exit (0);
+		}
 		cout << "Consumer(" << id << "): Job id " << job + 1 << " completed" << endl;
-		sem_signal(sem, 3);
+		if (sem_signal(sem, 3)){
+			thread_error_handler (id, sem);
+			pthread_exit (0);
+		}
 		
 	}
-	sem_wait(sem, 3);
+	if (sem_wait(sem, 3)){
+		thread_error_handler (id, sem);
+		pthread_exit (0);
+	}
 	cout << "Consumer(" << id << "): No more jobs left." << endl;
-	sem_signal(sem, 3);
+	if (sem_signal(sem, 3)){
+			thread_error_handler (id, sem);
+			pthread_exit (0);
+	}
 	
 	pthread_exit (0);
 }
