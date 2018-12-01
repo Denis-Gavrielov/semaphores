@@ -1,6 +1,8 @@
 /******************************************************************
  * The helper file that contains the following helper functions:
- * thread_error_handler - Checks if 
+ * thread_error_handler - handles errors within sem_wait and sem_signal 
+ * sem_error_handler - handles erros within sem_create, sem_init, and sem_close
+ * main_error_handler - handles errors related to pthread creation or join
  * check_arg - Checks if command line input is a number and returns it
  * sem_create - Create number of sempahores required in a semaphore array
  * sem_init - Initialise particular semaphore in semaphore array
@@ -13,6 +15,9 @@
 #include <stdio.h>
 
 void thread_error_handler (const int &id, const int &sem, string type) {
+	/* Print an informative message depending on the errno flag and 
+	exit the pthread.
+	*/
 	
 	type[0] = toupper(type[0]);
 	
@@ -29,10 +34,14 @@ void thread_error_handler (const int &id, const int &sem, string type) {
 }
 
 void main_error_handler (const int i, string type) {
+	/* Print an informative message about the errno flag raised. */
 	fprintf(stderr, "%s number %d returns error: %s\n", type.c_str(), i, strerror(errno));
 }
 
 void sem_error_handler (const int sem, string func) {
+	/* Print an informative message about the errno flag raised.
+	close the sem safely and exit the pthread (main thread in all cases).
+	*/
 
 	fprintf(stderr, "%s exited with error: %s\n", func.c_str(), strerror(errno));
 	if (func == "sem_init") 
@@ -86,8 +95,10 @@ void sem_wait (int sem, int id, short unsigned int num, string caller)
   	thread_error_handler(id, sem, caller);
 }
 
-/* Overloaded sem_wait function returning 0 if signal was received, 
-else -1.*/
+/* Overloaded sem_wait function timing out if no signal is received within 20s. 
+thread_error_handler will print an informative message if semtimedop returned 
+because of a time out. 
+*/
 void sem_wait (int sem, int id, short unsigned int num, int seconds, string caller)
 {
   struct sembuf op[] = {
@@ -97,8 +108,6 @@ void sem_wait (int sem, int id, short unsigned int num, int seconds, string call
   if (semtimedop (sem, op, 1, &time_struct)) 
   	thread_error_handler(id, sem, caller); 
 }
-
-
 
 void sem_signal (int sem, int id, short unsigned int num, string caller)
 {

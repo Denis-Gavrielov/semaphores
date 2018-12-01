@@ -1,0 +1,3 @@
+g++    -c -o helper.o helper.cc
+g++ -Wall -c helper.cc main.cc
+g++ -Wall -pthread -o main helper.o main.o

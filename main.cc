@@ -39,15 +39,14 @@ int main (int argc, char **argv) {
 	int producers = check_arg(argv[3]);
 	int consumers = check_arg(argv[4]);
 
-	int sem = sem_create(SEM_KEY, 6); 
+	int sem = sem_create(SEM_KEY, 5); 
 
 	// test if init worked
-	sem_init(sem, 0, 1); // mutex
+	sem_init(sem, 0, 1); // mutex for circular array
 	sem_init(sem, 1, queue_size); // queue not full
 	sem_init(sem, 2, 0); // queue not empty
-	sem_init(sem, 3, 1); // printing
-	sem_init(sem, 4, 1); // producer_id allocation
-	sem_init(sem, 5, 1); // consumer_id allocation
+	sem_init(sem, 3, 1); // mutex for producer_id allocation
+	sem_init(sem, 4, 1); // mutex for consumer_id allocation
 	
 
 	pthread_t producerid[producers];
@@ -91,14 +90,6 @@ int main (int argc, char **argv) {
 	return 0; 
 }
 
-/*
-idea: have the sem_wait function calling the handler immediately, if 
-semop returns -1. then the handler prints an informative message and exits
-from the thread. Need to overload the sem_wait then to take in an int for just 
-sem in the case of the sem_wait around the id allocation, and a struct with
-additionally the job id. 
-
-*/
 void *producer (void *my_job) {
 
 	job *job_p = (job *) my_job;
@@ -110,10 +101,10 @@ void *producer (void *my_job) {
 	sem = job_p->sem;
 	jobs = job_p->jobs;
 	
-	sem_wait(sem, id, 4);
+	sem_wait(sem, id, 3);
 	id = *(job_p->producer_id);
 	*(job_p->producer_id) = *(job_p->producer_id) + 1;
-	sem_signal(sem, id, 4);
+	sem_signal(sem, id, 3);
 	
 	while (jobs) {
 		jobs--;
@@ -146,10 +137,11 @@ void *consumer (void *my_job) {
 	id = -1;
 
 	sem = job_p->sem;
-	sem_wait(sem, id, 5); // extra error handler for without id
+	
+	sem_wait(sem, id, 4);
 	id = *(job_p->consumer_id);
 	*(job_p->consumer_id) = *(job_p->consumer_id) + 1;
-	sem_signal(sem, id, 5);
+	sem_signal(sem, id, 4);
 
 	while (1) {
 	
@@ -163,7 +155,7 @@ void *consumer (void *my_job) {
 		sem_signal(sem, id, 0);
 		sem_signal(sem, id, 1);
 
-		fprintf(stderr, "Consumer(%d): Job id %d executing sleep duration\n", id, job + 1, duration);
+		fprintf(stderr, "Consumer(%d): Job id %d executing sleep duration %d\n", id, job + 1, duration);
 		
 		sleep(duration);
 		

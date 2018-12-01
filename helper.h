@@ -30,7 +30,7 @@ union semun {
     ushort *array;         /* used for GETALL and SETALL */
 };
 
-void thread_error_handler (const int &id, const int &sem, string type = __builtin_FUNCTION());
+void thread_error_handler (const int &id, const int &sem, string type);
 void main_error_handler (const int i, string type);
 void sem_error_handler (const int sem, string func);
 int check_arg (char *);
